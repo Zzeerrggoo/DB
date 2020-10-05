@@ -1,0 +1,57 @@
+----------------------------------------------------------------------------
+CREATE VIEW "commissionMembersView" AS
+(
+SELECT prof.profile, d."name" || ' ' || d.surname AS "Deputy Name", p.post
+FROM "commissionMembers" AS cm
+         JOIN commission AS c ON cm."commissionId" = c.id
+         JOIN profiles AS prof ON c."profileId" = prof.id
+         JOIN deputy AS d ON cm."deputyId" = d.id
+         JOIN posts AS p ON cm."postId" = p.id
+    );
+
+
+/* Показать список комиссий с составом и председателем*/
+SELECT * FROM "commissionMembersView"
+ORDER BY profile, post;
+
+----------------------------------------------------------------------------
+/*Показать депутатов и комиссии, в которых они находятся */
+SELECT * FROM "commissionMembersView"
+ORDER BY "Deputy Name";
+
+----------------------------------------------------------------------------
+/*Для указанного интервала дат и комиссии выдать список её членов и количество заседаний которых они ПРОПУСТИЛИ */
+WITH "numOfSessionsByDeputy" AS (SELECT cm."deputyId", cm."commissionId", count(*) AS "deputySessions"
+                                 FROM "commissionMembers" AS cm
+                                          JOIN "sessionMembers" AS sm ON sm."memberId" = cm.id
+                                          JOIN session AS s on sm."sessionId" = s.id
+                                 WHERE cm."commissionId" = 1
+                                   AND s.time BETWEEN CURRENT_TIMESTAMP - interval '1 MONTH' AND CURRENT_TIMESTAMP + interval '1 MONTH'
+                                 GROUP BY cm."deputyId", cm."commissionId"),
+     "numOfSessionsByCommission" AS (
+         SELECT "commissionId", count(*) AS "allSessions"
+         FROM session
+         WHERE "commissionId" = 1
+           AND time BETWEEN CURRENT_TIMESTAMP - interval '1 MONTH' AND CURRENT_TIMESTAMP + interval '1 MONTH'
+         GROUP BY "commissionId")
+
+SELECT "numD"."deputyId", "numD"."commissionId", "numC"."allSessions" - "numD"."deputySessions" AS "Wasted Sessions"
+FROM "numOfSessionsByDeputy" AS "numD"
+         JOIN "numOfSessionsByCommission" AS "numC" ON "numD"."commissionId" = "numC"."commissionId"
+UNION
+SELECT cm."deputyId", cm."commissionId", "numC"."allSessions" AS "Wasted Sessions"
+FROM "commissionMembers" AS cm
+         JOIN "numOfSessionsByCommission" AS "numC" ON cm."commissionId" = "numC"."commissionId"
+WHERE cm."commissionId" = 1
+  AND cm."deputyId" NOT IN (SELECT "deputyId" FROM "numOfSessionsByDeputy");
+
+
+----------------------------------------------------------------------------
+/* По каждой комиссии показать кол-во проведенных заседаний в указанный промежуток времени*/
+
+SELECT "commissionId", count(*) AS "allSessions"
+FROM session
+WHERE time BETWEEN CURRENT_TIMESTAMP - interval '1 MONTH' AND CURRENT_TIMESTAMP + interval '1 MONTH'
+GROUP BY "commissionId";
+
+----------------------------------------------------------------------------
