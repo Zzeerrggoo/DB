@@ -1,0 +1,75 @@
+DROP TABLE IF EXISTS posts CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
+DROP TABLE IF EXISTS commission CASCADE;
+DROP TABLE IF EXISTS "commissionMembers" CASCADE;
+DROP TABLE IF EXISTS deputy CASCADE;
+DROP TABLE IF EXISTS "sessionMembers" CASCADE;
+DROP TABLE IF EXISTS session CASCADE;
+
+
+
+CREATE TABLE posts
+(
+    id   serial PRIMARY KEY,
+    post varchar(255) NOT NULL UNIQUE
+);
+
+
+CREATE TABLE profiles
+(
+    id      serial PRIMARY KEY,
+    profile varchar(255) NOT NULL UNIQUE
+);
+
+
+CREATE TABLE commission
+(
+    id          serial PRIMARY KEY,
+    "profileId" integer REFERENCES profiles
+);
+
+
+CREATE TABLE deputy
+(
+    id           serial PRIMARY KEY,
+    name         varchar(255) NOT NULL,
+    surname      varchar(255) NOT NULL,
+    address      varchar(255) NOT NULL,
+    "homeNumber" varchar(20)  NOT NULL,
+    "workNumber" varchar(20)  NOT NULL
+);
+
+
+/*В таблице председатель и член комиссии различаются лишь постами.
+--Если у депутата нет даты увольнения, он является текущим членом комиссии.
+
+--Если член комиссии избирается депутатом, то указывается дата окончания его работы как
+члена комиссии и создаётся новая запись, где он уже указан как председатель. За счёт этого
+есть история, кто кем был в какой период и нет надобности выделять председателей как отдельную группу
+*/
+CREATE TABLE "commissionMembers"
+(
+    id              serial PRIMARY KEY,
+    "commissionId"  integer REFERENCES commission NOT NULL,
+    "deputyId"      integer REFERENCES deputy     NOT NULL,
+    "postId"        integer REFERENCES posts      NOT NULL,
+    "enteringDate"  date                          NOT NULL CHECK ("enteringDate" BETWEEN CURRENT_DATE - interval '10 YEARS' AND CURRENT_DATE ),
+    "dismissalDate" date CHECK ("dismissalDate" >= "enteringDate" OR "dismissalDate" IS NULL )
+);
+
+
+CREATE TABLE session
+(
+    id             serial PRIMARY KEY,
+    "commissionId" integer REFERENCES commission NOT NULL,
+    "time"         timestamp                     NOT NULL,
+    "place"        varchar(300)                  NOT NULL
+);
+
+
+CREATE TABLE "sessionMembers"
+(
+    id          serial PRIMARY KEY,
+    "sessionId" integer REFERENCES session             NOT NULL,
+    "memberId"  integer REFERENCES "commissionMembers" NOT NULL
+);
